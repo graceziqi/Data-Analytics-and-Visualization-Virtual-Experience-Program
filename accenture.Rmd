@@ -1,0 +1,109 @@
+---
+title: "accenture"
+author: "Grace Zhang"
+date: "2023-07-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#loading packages
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+#read data set
+content <- read.csv("Content.csv", header=TRUE)
+head(content)
+
+reactions <- read.csv("reactions.csv", header=TRUE)
+head(reactions)
+
+reactiontypes <- read.csv("ReactionTypes.csv", header=TRUE)
+head(reactiontypes)
+
+###cleaning data
+#remove rows with missing values
+reactions <- reactions[!(reactions$Type == ""), ]
+
+#remove irrelevant columns
+content <- content %>% 
+  select(-c("User.ID","URL"))
+reactions <- reactions %>%
+  select(-c("User.ID"))
+
+#rename column name
+content <- content %>%
+  rename("Content Type" = "Type")
+reactions <- reactions %>%
+  rename("Reaction Type" = "Type")
+reactiontypes <- reactiontypes %>%
+  rename("Reaction Type" = "Type")
+```
+
+```{r}
+#merging Content with Reaction (base table)
+##remove additional columns
+content_reactions_merge <- inner_join(reactions, content, by="Content.ID") %>%
+  select(-c("X.x", "X.y"))
+
+#merging reactiontypes with the previous merged table
+final_merge <- inner_join(content_reactions_merge, reactiontypes, by="Reaction Type") %>%
+  select(-"X")
+```
+
+```{r}
+#replace quotation mark from strings
+rep_str = c('"animals"'='animals','Animals'='animals', '"cooking"'='cooking', '"culture"'='culture', 'Cultrue'='culture', '"dogs"' = 'dogs', '"food"'='food', '"public speaking"'='public speaking', '"science"'='science', '"soccer"'='soccer', '"studying"'='studying', '"technology"'='technology', '"veganism"'='veganism', 'Culture'='culture', 'Education'='education', 'Fitness'='fitness', 'Food'='food', 'Healthy Eating'='healthy eating', 'Public Speaking'='public speaking', 'Science'='science','Soccer'='soccer', 'Studying'='studying', 'Technology'='technology', 'Travel'='travel', 'Veganism'='veganism')
+final_merge$Category <- str_replace_all(final_merge$Category, rep_str)
+
+#sum of scores for each category
+total_score <- final_merge %>% 
+  group_by(Category) %>%
+  summarize(Totalscore=sum(Score)) %>%
+  arrange(desc(Totalscore))%>%
+  rename("Total Score" = "Totalscore")
+total_score <- total_score[1:5,] %>% print()
+
+#export data
+write.csv(total_score, "topfive.csv")
+```
+
+```{r}
+#number of unique category
+category_number <- final_merge %>%
+  count(Category)%>%
+  view()
+##export data
+write.csv(category_number, "all category.csv")
+
+#reaction to the most popular cateory (animals category)
+animal_reaction_reaction <- final_merge %>%
+  filter(Category == "animals")%>%
+  count(`Reaction Type`)%>%
+  view()
+##export data
+write.csv(animal_reaction, "reactions to animals category.csv")
+
+#number of post
+animal_reaction <- final_merge %>%
+  filter(Category == "animals")
+```
+
+
+
+```{r}
+#visualization of top five categories 
+total_score$Category <- factor(total_score$Category, levels=total_score$Category [order(total_score$`Total Score`)])
+
+  ggplot(total_score, aes(x=total_score$Category, y=total_score$`Total Score`)) +
+    geom_segment( aes(xend=total_score$Category, yend=0)) +
+    geom_point( size=4, color="orange") +
+    theme_bw() +
+    labs(title="Total Score of Top Five Categories", x="Category", y="Total Score")
+```
+
